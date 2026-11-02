@@ -16,10 +16,10 @@ While this happens the ESP32 measures the machine itself: **motor current and vo
 |---|---|---|
 | ESP32 DevKitC 38-pin (WROOM, CP2102 USB) | Brain of the line: reads sensors, runs the belt, fires the gate, streams data to the Mac | USB serial 115200 |
 | 24 V DC adapter | Main power in | — |
-| LM2596 buck #1, set to **5.5 V** | Logic rail: ESP32 5V pin, MG996R servo, relay coil | — |
-| LM2596 buck #2, set to **12 V** | Motor rail: belt motor, light-tunnel LED strip | — |
+| LM2596 buck #1, set to **5.5 V** | Main rail: ESP32 5V pin, MG996R servo, relay coil, belt motor | — |
+| LM2596 buck #2, set to **12 V** | LED rail: light-tunnel LED strip only | — |
 | 1000 µF 16 V capacitor (C1) | Absorbs the servo's current kick on the 5.5 V rail | — |
-| 25GA-370 12 V gear motor | Drives the belt through 18T/36T printed gears | via relay |
+| 25GA-370 12 V gear motor (run at 5.5 V) | Drives the belt through 18T/36T printed gears | via relay |
 | 1-channel 5 V relay module | Starts / stops the belt (stop-and-inspect) | GPIO26, active LOW |
 | Toggle switch S1 | Master belt switch (the real "off") | — |
 | INA219 current sensor | Belt-motor current (mA) and voltage (V) | I²C 0x40 |
@@ -38,18 +38,18 @@ While this happens the ESP32 measures the machine itself: **motor current and vo
 24 V adapter ─┬─▶ LM2596 #1 ── 5.5 V ──┬─▶ ESP32 "5V" pin
               │                        ├─▶ MG996R red wire
               │                        ├─▶ relay module VCC
-              │                        └─▶ C1 1000 µF (stripe to GND)
+              │                        ├─▶ C1 1000 µF (stripe to GND)
+              │                        └─▶ S1 ─▶ INA219 VIN+ ─▶ VIN−
+              │                                   ─▶ relay NO ─▶ COM ─▶ motor (+)
+              │                                      motor (−) ─▶ GND
               │
-              └─▶ LM2596 #2 ── 12 V ───┬─▶ LED strip (+)   tunnel light, always on
-                                       └─▶ S1 ─▶ INA219 VIN+ ─▶ VIN−
-                                                  ─▶ relay COM ─▶ NO ─▶ motor (+)
-                                                     motor (−) ─▶ GND
+              └─▶ LM2596 #2 ── 12 V ────▶ LED strip (+)   tunnel light, always on
 
 All grounds joined: buck #1 OUT−, buck #2 OUT−, ESP32 GND,
 sensor GNDs, servo brown wire, relay GND.
 ```
 
-**Why two bucks?** The motor and LEDs need 12 V; the ESP32 and servo want about 5 V. One buck at 5.5 V ran the motor at half speed and could not light the 12 V LEDs. Two bucks keep each rail clean, and the servo's 1–2 A kick does not dip the motor rail.
+**Why two bucks?** The 12 V LED strip needs 12 V; everything else runs on 5.5 V. The belt motor is a 12 V motor, but it runs on the 5.5 V rail at about half speed (roughly 60 rpm instead of 130) — slow is fine, even good, for stop-and-inspect. Buck #1 now carries the ESP32, servo, relay and motor, so give it a heatsink and short thick wires.
 
 **Why 5.5 V and not 5.0 V?** The MG996R is stronger above 5 V (rated 4.8–7.2 V), and the ESP32's own regulator takes 5.5 V easily. Do not go above 6 V on rail #1.
 
@@ -105,7 +105,7 @@ Wire one block, test it with its bring-up sketch from **nazar-firmware/bringup/*
 | 3 | DS18B20 + 4.7 kΩ on GPIO4 | `05_ds18b20` | Room temperature; rises when you hold the tip |
 | 4 | FC-51 on 3V3/GND/18 | `06_fc51_ir` | Prints PART when a washer passes, CLEAR otherwise; adjust trimmer |
 | 5 | Set bucks (above). Wire buck #1 → ESP32 5V, C1, servo, relay VCC | `07_servo_gate` | Arm moves between parked and kick angles; ESP32 does not reset during the move |
-| 6 | Buck #2 → LEDs; S1 → INA219 → relay → motor | `08_relay_belt` | `1` runs the belt, `0` stops it; S1 off always stops it |
+| 6 | Buck #2 → LEDs; buck #1 → S1 → INA219 → relay → motor | `08_relay_belt` | `1` runs the belt, `0` stops it; S1 off always stops it |
 | 7 | Everything | `nazar_line` (main firmware) + `tools/serial_check.py` | `hello` lists all four sensors true; telemetry 10 lines/s; PING → pong |
 | 8 | Camera + Mac app | NAZAR Console | LIVE DATA band; a washer stops under the camera; verdict comes back; REJECT kicks it off |
 
@@ -115,7 +115,7 @@ Before step 5: unplug USB, power up from the 24 V side once and measure 5.5 V at
 
 - **Frame:** two wooden rails 640 × 80 × 18 mm, 135 mm apart inside, on leg blocks.
 - **Rollers:** 25 mm PVC pipe, 125 mm long, with 3D-printed end plugs on 608ZZ bearings; 540 mm centre to centre.
-- **Drive:** the 25GA-370 (12 V, 130 rpm) lies on top of the rail in the printed **P7S saddle** and drives the roller through printed **18T / 36T gears** (2:1, 33 mm centre distance). Slide the motor along the rail to set the mesh. Gears reverse direction compared with a belt — swap the motor wires if the belt runs backwards.
+- **Drive:** the 25GA-370 (12 V, 130 rpm; about 60 rpm on our 5.5 V rail) lies on top of the rail in the printed **P7S saddle** and drives the roller through printed **18T / 36T gears** (2:1, 33 mm centre distance). Slide the motor along the rail to set the mesh. Gears reverse direction compared with a belt — swap the motor wires if the belt runs backwards.
 - **Light tunnel:** printed brackets hold the 12 V LED strip; the camera looks down through the top. Keep camera height and lighting **the same as when the AI was trained**.
 - **Reject gate:** MG996R on the printed **P13 tower**, with the **P14 sort arm** (15 mm height adjustment). It is a *kick*, not a slow diverter: parked along the rail, it swings about 70°, holds ~0.35 s and returns. Washers need about 100 mm spacing.
 
@@ -139,6 +139,7 @@ Printable files for these parts are in `mechanical/stl/`.
 | MPU answers 0x70/0x72/0x98 instead of 0x68 | Clone chip | Fine — firmware accepts it |
 | DS18B20 reads −127 °C or 85 °C | Missing pull-up / read too early | 4.7 kΩ between yellow and red |
 | ESP32 resets when the servo moves | 5.5 V rail sags | C1 fitted, short thick wires, buck #1 not overloaded |
+| ESP32 resets when the belt starts | motor start current sags the 5.5 V rail (the motor shares it now) | same fixes, plus 470–1000 µF right at the ESP32 5V/GND pins |
 | Belt never stops | Relay jumper on H, or IN wired to wrong pin | Jumper on L, IN to GPIO26 |
 | Belt never runs | S1 off, or relay NO/COM swapped | Motor + goes through COM → NO |
 | Current reads negative | INA219 VIN+ and VIN− swapped | VIN+ from S1 side, VIN− to relay |

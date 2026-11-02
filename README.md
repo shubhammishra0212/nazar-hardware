@@ -23,7 +23,7 @@ Circuit, wiring and mechanical files for **NAZAR** — the AI washer-inspection 
 | MG996R reject gate (via 330 Ω) | 13 |
 | Belt relay IN (active LOW) | 26 |
 
-Power: 24 V adapter → LM2596 #1 at 5.5 V (ESP32 5V pin, servo, relay) and LM2596 #2 at 12 V (LED tunnel, belt motor via S1 → INA219 → relay).
+Power: 24 V adapter → LM2596 #1 at 5.5 V (ESP32 5V pin, servo, relay, and the belt motor via S1 → INA219 → relay) and LM2596 #2 at 12 V (LED tunnel only).
 
 ## The other NAZAR repos
 
