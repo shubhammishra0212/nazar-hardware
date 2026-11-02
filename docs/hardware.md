@@ -20,7 +20,7 @@ While this happens the ESP32 measures the machine itself: **motor current and vo
 | LM2596 buck #2, set to **12 V** | LED rail: light-tunnel LED strip only | — |
 | 1000 µF 16 V capacitor (C1) | Absorbs the servo's current kick on the 5.5 V rail | — |
 | 25GA-370 12 V gear motor (run at 5.5 V) | Drives the belt through 18T/36T printed gears | via relay |
-| 1-channel 5 V relay module | Starts / stops the belt (stop-and-inspect) | GPIO26, active LOW |
+| 1-channel 5 V relay module (BC547 driver) | Starts / stops the belt (stop-and-inspect) | GPIO26, active HIGH |
 | Toggle switch S1 | Master belt switch (the real "off") | — |
 | INA219 current sensor | Belt-motor current (mA) and voltage (V) | I²C 0x40 |
 | MPU-6050 accelerometer | Motor / frame vibration | I²C 0x68 |
@@ -71,7 +71,7 @@ sensor GNDs, servo brown wire, relay GND.
 | FC-51 OUT | 18 | purple | LOW when a washer is in front |
 | DS18B20 DQ (yellow) | 4 | yellow | 4.7 kΩ between yellow and red |
 | MG996R signal (orange) | 13 | cyan | through 330 Ω |
-| Relay IN | 26 | indigo | LOW = belt runs; released = belt stops. Jumper on **L** |
+| Relay IN | 26 | indigo | HIGH = belt runs; LOW = belt stops (active HIGH board) |
 | Power in | 5V | orange | from buck #1 (5.5 V) |
 | GND | GND | black | common ground |
 
@@ -91,7 +91,7 @@ I²C addresses: INA219 **0x40**, MPU-6050 **0x68** (AD0 to GND), BH1750 **0x23**
 
 **MG996R — reject gate.** A servo turns to an angle set by pulse width (about 0.5–2.5 ms, every 20 ms). The ESP32 makes that signal with its LEDC PWM hardware. The 330 Ω resistor protects the GPIO if the servo misbehaves.
 
-**Relay — belt start/stop.** The module's input is *active LOW*: the ESP32 pulls IN to GND to switch the relay on. To switch it off, the ESP32 *releases* the pin (makes it an input) so the module's own pull-up takes IN to 5 V. Driving 3.3 V HIGH would not reliably turn a 5 V module off — releasing the pin does.
+**Relay — belt start/stop.** Our board drives the 5 V relay coil with a BC547 (NPN) transistor, so its input is *active HIGH*: the ESP32 sets IN to 3.3 V to switch the relay on and to 0 V to switch it off. The red LED shows when the relay is on. The diagram draws a different-looking module (with an H/L jumper); the three pins are the same — VCC, GND, IN. Its screw terminals are not labelled on the front: with the relay off, COM and NC beep on a multimeter; the third one is NO.
 
 ## Wiring and bring-up order
 
@@ -140,7 +140,8 @@ Printable files for these parts are in `mechanical/stl/`.
 | DS18B20 reads −127 °C or 85 °C | Missing pull-up / read too early | 4.7 kΩ between yellow and red |
 | ESP32 resets when the servo moves | 5.5 V rail sags | C1 fitted, short thick wires, buck #1 not overloaded |
 | ESP32 resets when the belt starts | motor start current sags the 5.5 V rail (the motor shares it now) | same fixes, plus 470–1000 µF right at the ESP32 5V/GND pins |
-| Belt never stops | Relay jumper on H, or IN wired to wrong pin | Jumper on L, IN to GPIO26 |
+| Belt never stops | Motor on NC instead of NO, or IN wired to the wrong pin | Motor + through NO → COM, IN to GPIO26 |
+| Belt runs when it should stop | Firmware set for an active-LOW module | `RELAY_ACTIVE_HIGH = true` in `config.h` |
 | Belt never runs | S1 off, or relay NO/COM swapped | Motor + goes through COM → NO |
 | Current reads negative | INA219 VIN+ and VIN− swapped | VIN+ from S1 side, VIN− to relay |
 | Upload fails "port busy" | Console app or serial monitor holds the port | Disconnect in NAZAR Console first |
