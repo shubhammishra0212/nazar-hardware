@@ -117,7 +117,7 @@ Before step 5: unplug USB, power up from the 24 V side once and measure 5.5 V at
 - **Rollers:** 25 mm PVC pipe, 125 mm long, with 3D-printed end plugs on 608ZZ bearings; 540 mm centre to centre.
 - **Drive:** the 25GA-370 (12 V, 130 rpm; about 60 rpm on our 5.5 V rail) lies on top of the rail in the printed **P7S saddle** and drives the roller through printed **18T / 36T gears** (2:1, 33 mm centre distance). Slide the motor along the rail to set the mesh. Gears reverse direction compared with a belt — swap the motor wires if the belt runs backwards.
 - **Light tunnel:** printed brackets hold the 12 V LED strip; the camera looks down through the top. Keep camera height and lighting **the same as when the AI was trained**.
-- **Reject gate:** MG996R on the printed **P13 tower**, with the **P14 sort arm** (15 mm height adjustment). It is a *kick*, not a slow diverter: parked along the rail, it swings about 70°, holds ~0.35 s and returns. Washers need about 100 mm spacing.
+- **Reject gate:** MG996R on the printed **P13 tower**, with the **P14 sort arm** (15 mm height adjustment). Since firmware 2.2 it is a *stop gate*: parked along the rail, washers pass; for a reject it swings square across the belt (park_deg 0 → block_deg 90, tunable with SET) and stays there until the next good washer, so the reject is stopped and taken off by hand. The kick (out and back) is still available with `SET kick 1`. Same wiring.
 
 ![Printed gear drive](img/gears.png)
 
